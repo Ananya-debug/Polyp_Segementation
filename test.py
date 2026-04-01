@@ -1,18 +1,16 @@
-
 import os
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 import numpy as np
 import cv2
-import imageio
 from glob import glob
 from tqdm import tqdm
 import tensorflow as tf
 from train import create_dir, load_dataset
-from metrics import dice_loss, dice_coef
+from metrics import dice_loss, dice_coef, precision, recall   # ✅ FIXED
 
-IMG_H = 512
-IMG_W = 512
+IMG_H = 256
+IMG_W = 256
 
 if __name__ == "__main__":
     """ Seeding """
@@ -20,19 +18,31 @@ if __name__ == "__main__":
     tf.random.set_seed(42)
 
     """ Directory for storing files """
-    create_dir(f"results")
+    create_dir("results")
 
     """ Load the model """
-    model_path = os.path.join("files", "model.h5")
-    model = tf.keras.models.load_model(model_path, custom_objects={"dice_loss": dice_loss, "dice_coef": dice_coef})
+    model_path = os.path.join("files", "model.keras")
+
+    model = tf.keras.models.load_model(
+        model_path,
+        custom_objects={
+            "dice_loss": dice_loss,
+            "dice_coef": dice_coef,
+            "precision": precision,   # ✅ FIXED
+            "recall": recall          # ✅ FIXED
+        }
+    )
 
     """ Dataset """
-    dataset_path = "/media/nikhil/New Volume/ML_DATASET/Kvasir-SEG"
+    dataset_path = "Kvasir-SEG"
     (train_x, train_y), (valid_x, valid_y), (test_x, test_y) = load_dataset(dataset_path)
 
     print(f"Train: \t{len(train_x)} - {len(train_y)}")
     print(f"Valid: \t{len(valid_x)} - {len(valid_y)}")
     print(f"Test: \t{len(test_x)} - {len(test_y)}")
+
+    """ Initialize metrics """
+    total_tp, total_fp, total_fn, total_tn = 0, 0, 0, 0
 
     """ Prediction """
     for x, y in tqdm(zip(test_x, test_y), total=len(test_x)):
@@ -42,23 +52,52 @@ if __name__ == "__main__":
         """ Reading the image """
         image = cv2.imread(x, cv2.IMREAD_COLOR)
         image = cv2.resize(image, (IMG_W, IMG_H))
-        x = image / 255.0
-        x = np.expand_dims(x, axis=0)
+        x_input = image / 255.0
+        x_input = np.expand_dims(x_input, axis=0)
 
         """ Read Mask """
         mask = cv2.imread(y, cv2.IMREAD_GRAYSCALE)
         mask = cv2.resize(mask, (IMG_W, IMG_H))
         mask = mask / 255.0
-        mask = np.expand_dims(mask, axis=-1)
-        mask = np.concatenate([mask, mask, mask], axis=-1)
 
         """ Prediction """
-        pred = model.predict(x, verbose=0)[0]
-        pred = np.concatenate([pred, pred, pred], axis=-1)
-        # pred = (pred > 0.5).astype(np.int32)
+        pred = model.predict(x_input, verbose=0)[0]
+        pred = (pred > 0.5).astype(np.float32)
 
-        """ Save final mask """
+        """ --- METRICS CALCULATION --- """
+        mask_bin = (mask > 0.5).astype(np.float32)
+
+        mask_flat = mask_bin.flatten()
+        pred_flat = pred[:, :, 0].flatten()
+
+        tp = np.sum(mask_flat * pred_flat)
+        fp = np.sum((1 - mask_flat) * pred_flat)
+        fn = np.sum(mask_flat * (1 - pred_flat))
+        tn = np.sum((1 - mask_flat) * (1 - pred_flat))
+
+        total_tp += tp
+        total_fp += fp
+        total_fn += fn
+        total_tn += tn
+
+        """ --- VISUALIZATION --- """
+        mask_vis = np.expand_dims(mask, axis=-1)
+        mask_vis = np.concatenate([mask_vis, mask_vis, mask_vis], axis=-1)
+
+        pred_vis = np.concatenate([pred, pred, pred], axis=-1)
+
         line = np.ones((IMG_H, 10, 3)) * 255
-        cat_images = np.concatenate([image, line, mask*255, line, pred*255], axis=1)
-        save_image_path = os.path.join("results",  f"{name}.jpg")
+        cat_images = np.concatenate([image, line, mask_vis*255, line, pred_vis*255], axis=1)
+
+        save_image_path = os.path.join("results", f"{name}.jpg")
         cv2.imwrite(save_image_path, cat_images)
+
+    """ --- FINAL METRICS --- """
+    final_precision = total_tp / (total_tp + total_fp + 1e-7)
+    final_recall = total_tp / (total_tp + total_fn + 1e-7)
+    final_accuracy = (total_tp + total_tn) / (total_tp + total_fp + total_fn + total_tn + 1e-7)
+
+    print("\nFinal Results:")
+    print(f"Precision: {final_precision:.4f}")
+    print(f"Recall: {final_recall:.4f}")
+    print(f"Accuracy: {final_accuracy:.4f}")
