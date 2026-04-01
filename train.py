@@ -81,7 +81,7 @@ if __name__ == "__main__":
     """ Hyperparameters """
     batch_size = 2
     lr = 1e-4
-    num_epochs = 500
+    num_epochs = 15
     model_path = os.path.join("files", "model.keras")
     csv_path = os.path.join("files", "log.csv")
 
@@ -98,7 +98,13 @@ if __name__ == "__main__":
 
     """ Model """
     model = unet3plus((IMG_H, IMG_W, 3))
-    model.compile(loss=dice_loss, optimizer=Adam(lr), metrics=[dice_coef])
+    from metrics import dice_loss, dice_coef, precision, recall
+
+    model.compile(
+    loss=dice_loss,
+    optimizer=Adam(lr),
+    metrics=[dice_coef, precision, recall]
+    )  
     model.summary()
 
     callbacks = [
