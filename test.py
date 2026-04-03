@@ -81,23 +81,52 @@ if __name__ == "__main__":
         total_tn += tn
 
         """ --- VISUALIZATION --- """
+                """ --- VISUALIZATION (UPDATED) --- """
+
+        # Convert prediction to 3-channel
+        pred_3ch = np.concatenate([pred, pred, pred], axis=-1)
+
+        # Create red mask (highlight polyp)
+        red_mask = np.zeros_like(image)
+        red_mask[:, :, 2] = pred[:, :, 0] * 255   # Red channel
+
+        # Overlay on original image
+        overlay = cv2.addWeighted(image, 0.7, red_mask.astype(np.uint8), 0.3, 0)
+
+        # Also prepare ground truth visualization (optional)
         mask_vis = np.expand_dims(mask, axis=-1)
         mask_vis = np.concatenate([mask_vis, mask_vis, mask_vis], axis=-1)
 
-        pred_vis = np.concatenate([pred, pred, pred], axis=-1)
-
+        # Separator line
         line = np.ones((IMG_H, 10, 3)) * 255
-        cat_images = np.concatenate([image, line, mask_vis*255, line, pred_vis*255], axis=1)
+
+        # Final combined image
+        combined = np.concatenate([
+            image,                 # Original
+            line,
+            overlay,               # 🔥 Highlighted output
+            line,
+            mask_vis * 255,        # Ground truth
+            line,
+            pred_3ch * 255         # Prediction mask
+        ], axis=1)
 
         save_image_path = os.path.join("results", f"{name}.jpg")
-        cv2.imwrite(save_image_path, cat_images)
+        cv2.imwrite(save_image_path, combined)
 
     """ --- FINAL METRICS --- """
     final_precision = total_tp / (total_tp + total_fp + 1e-7)
     final_recall = total_tp / (total_tp + total_fn + 1e-7)
     final_accuracy = (total_tp + total_tn) / (total_tp + total_fp + total_fn + total_tn + 1e-7)
+    # Dice Coefficient
+    final_dice = (2 * total_tp) / (2 * total_tp + total_fp + total_fn + 1e-7)
+
+    # Dice Loss
+    final_dice_loss = 1 - final_dice
 
     print("\nFinal Results:")
     print(f"Precision: {final_precision:.4f}")
     print(f"Recall: {final_recall:.4f}")
     print(f"Accuracy: {final_accuracy:.4f}")
+    print(f"Dice Coefficient: {final_dice:.4f}")
+    print(f"Dice Loss: {final_dice_loss:.4f}")
