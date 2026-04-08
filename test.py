@@ -80,11 +80,7 @@ if __name__ == "__main__":
         total_fn += fn
         total_tn += tn
 
-        """ --- VISUALIZATION --- """
-                """ --- VISUALIZATION (UPDATED) --- """
-
-        # Convert prediction to 3-channel
-        pred_3ch = np.concatenate([pred, pred, pred], axis=-1)
+        """ --- VISUALIZATION (FINAL CLEAN VERSION) --- """
 
         # Create red mask (highlight polyp)
         red_mask = np.zeros_like(image)
@@ -93,22 +89,20 @@ if __name__ == "__main__":
         # Overlay on original image
         overlay = cv2.addWeighted(image, 0.7, red_mask.astype(np.uint8), 0.3, 0)
 
-        # Also prepare ground truth visualization (optional)
+        # Ground truth to 3-channel
         mask_vis = np.expand_dims(mask, axis=-1)
-        mask_vis = np.concatenate([mask_vis, mask_vis, mask_vis], axis=-1)
+        mask_vis = np.concatenate([mask_vis, mask_vis, mask_vis], axis=-1) * 255
 
         # Separator line
         line = np.ones((IMG_H, 10, 3)) * 255
 
-        # Final combined image
+        # Final combined image (ONLY 3 PARTS)
         combined = np.concatenate([
-            image,                 # Original
+            image,        # Original
             line,
-            overlay,               # 🔥 Highlighted output
+            mask_vis,     # Ground Truth
             line,
-            mask_vis * 255,        # Ground truth
-            line,
-            pred_3ch * 255         # Prediction mask
+            overlay       # Highlighted Output
         ], axis=1)
 
         save_image_path = os.path.join("results", f"{name}.jpg")
