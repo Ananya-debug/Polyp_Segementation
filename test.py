@@ -80,7 +80,8 @@ if __name__ == "__main__":
         total_fn += fn
         total_tn += tn
 
-       """ --- VISUALIZATION (TRANSPARENT BACKGROUND) --- """
+        """ --- VISUALIZATION (TRANSPARENT BACKGROUND) --- """
+        
         # 1. Create a binary mask (0 for background, 255 for detected area)
         mask_pred = (pred[:, :, 0] > 0.5).astype(np.uint8) * 255
 
