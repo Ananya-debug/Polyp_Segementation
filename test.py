@@ -7,7 +7,7 @@ from glob import glob
 from tqdm import tqdm
 import tensorflow as tf
 from train import create_dir, load_dataset
-from metrics import dice_loss, dice_coef, precision, recall   # ✅ FIXED
+from metrics import dice_loss, dice_coef, precision, recall   
 
 IMG_H = 256
 IMG_W = 256
@@ -82,31 +82,23 @@ if __name__ == "__main__":
 
         """ --- VISUALIZATION (FINAL CLEAN VERSION) --- """
 
-        # Create red mask (highlight polyp)
-        red_mask = np.zeros_like(image)
-        red_mask[:, :, 2] = pred[:, :, 0] * 255   # Red channel
 
-        # Overlay on original image
-        overlay = cv2.addWeighted(image, 0.7, red_mask.astype(np.uint8), 0.3, 0)
+        # Binary mask
+        mask_pred = (pred[:, :, 0] > 0.5).astype(np.uint8)
 
-        # Ground truth to 3-channel
-        mask_vis = np.expand_dims(mask, axis=-1)
-        mask_vis = np.concatenate([mask_vis, mask_vis, mask_vis], axis=-1) * 255
+        # Create BGRA image (Blue, Green, Red, Alpha)
+        output = cv2.cvtColor(image, cv2.COLOR_BGR2BGRA)
 
-        # Separator line
-        line = np.ones((IMG_H, 10, 3)) * 255
+        # Set alpha channel using prediction mask
+        output[:, :, 3] = mask_pred * 255
 
-        # Final combined image (ONLY 3 PARTS)
-        combined = np.concatenate([
-            image,        # Original
-            line,
-            mask_vis,     # Ground Truth
-            line,
-            overlay       # Highlighted Output
-        ], axis=1)
+        # Optional:
+        # Remove background color completely
+        output[mask_pred == 0] = [0, 0, 0, 0]
 
-        save_image_path = os.path.join("results", f"{name}.jpg")
-        cv2.imwrite(save_image_path, combined)
+        # Save as PNG (supports transparency)
+        save_image_path = os.path.join("results", f"{name}.png")
+        cv2.imwrite(save_image_path, output)
 
     """ --- FINAL METRICS --- """
     final_precision = total_tp / (total_tp + total_fp + 1e-7)
