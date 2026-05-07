@@ -80,26 +80,25 @@ if __name__ == "__main__":
         total_fn += fn
         total_tn += tn
 
-        """ --- VISUALIZATION (FINAL CLEAN VERSION) --- """
+       """ --- VISUALIZATION (TRANSPARENT BACKGROUND) --- """
+        # 1. Create a binary mask (0 for background, 255 for detected area)
+        mask_pred = (pred[:, :, 0] > 0.5).astype(np.uint8) * 255
 
+        # 2. Convert the original BGR image to BGRA (adds the Alpha channel)
+        bgra_image = cv2.cvtColor(image, cv2.COLOR_BGR2BGRA)
 
-        # Binary mask
-        mask_pred = (pred[:, :, 0] > 0.5).astype(np.uint8)
+        # 3. Set the Alpha channel (index 3) to our mask
+        # Pixels where mask_pred is 0 become transparent
+        bgra_image[:, :, 3] = mask_pred
 
-        # Create BGRA image (Blue, Green, Red, Alpha)
-        output = cv2.cvtColor(image, cv2.COLOR_BGR2BGRA)
+        # 4. Optional: Clean the color channels
+        # This ensures pixels that are transparent don't carry "ghost" colors
+        bgra_image[mask_pred == 0] = [0, 0, 0, 0]
 
-        # Set alpha channel using prediction mask
-        output[:, :, 3] = mask_pred * 255
-
-        # Optional:
-        # Remove background color completely
-        output[mask_pred == 0] = [0, 0, 0, 0]
-
-        # Save as PNG (supports transparency)
+        # 5. Save as PNG (CRITICAL: .jpg does not support transparency)
         save_image_path = os.path.join("results", f"{name}.png")
-        cv2.imwrite(save_image_path, output)
-
+        cv2.imwrite(save_image_path, bgra_image)
+    
     """ --- FINAL METRICS --- """
     final_precision = total_tp / (total_tp + total_fp + 1e-7)
     final_recall = total_tp / (total_tp + total_fn + 1e-7)
