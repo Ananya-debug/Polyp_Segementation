@@ -80,25 +80,20 @@ if __name__ == "__main__":
         total_fn += fn
         total_tn += tn
 
-        """ --- VISUALIZATION (TRANSPARENT BACKGROUND) --- """
-        
-        # 1. Create a binary mask (0 for background, 255 for detected area)
-        mask_pred = (pred[:, :, 0] > 0.5).astype(np.uint8) * 255
+        """ --- VISUALIZATION (ONLY DETECTED POLYP) --- """
 
-        # 2. Convert the original BGR image to BGRA (adds the Alpha channel)
-        bgra_image = cv2.cvtColor(image, cv2.COLOR_BGR2BGRA)
+        # Binary prediction mask
+        pred_mask = (pred[:, :, 0] > 0.5).astype(np.uint8)
 
-        # 3. Set the Alpha channel (index 3) to our mask
-        # Pixels where mask_pred is 0 become transparent
-        bgra_image[:, :, 3] = mask_pred
+        # Convert mask to 3 channels
+        pred_mask_3ch = np.stack([pred_mask]*3, axis=-1)
 
-        # 4. Optional: Clean the color channels
-        # This ensures pixels that are transparent don't carry "ghost" colors
-        bgra_image[mask_pred == 0] = [0, 0, 0, 0]
+        # Keep original colors only inside detected polyp
+        output = image * pred_mask_3ch
 
-        # 5. Save as PNG (CRITICAL: .jpg does not support transparency)
+        # Save final output
         save_image_path = os.path.join("results", f"{name}.png")
-        cv2.imwrite(save_image_path, bgra_image)
+        cv2.imwrite(save_image_path, output)
     
     """ --- FINAL METRICS --- """
     final_precision = total_tp / (total_tp + total_fp + 1e-7)
