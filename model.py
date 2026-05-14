@@ -27,6 +27,7 @@ def unet3plus(input_shape, num_classes=1):
 
     """ Pre-trained VGG16 Model """
     encoder = ResNet50(include_top=False, weights="imagenet", input_tensor=inputs)
+    encoder.trainable = False
 
     """ Encoder """
     e1 = encoder.get_layer("input_layer").output
