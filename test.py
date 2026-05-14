@@ -80,16 +80,19 @@ if __name__ == "__main__":
         total_fn += fn
         total_tn += tn
 
-        """ --- VISUALIZATION (ONLY DETECTED POLYP) --- """
+        """ --- VISUALIZATION (POLYP ONLY WITH ORIGINAL COLORS) --- """
 
-        # Binary prediction mask
-        pred_mask = (pred[:, :, 0] > 0.5).astype(np.uint8)
+        # Get prediction mask
+        pred_mask = pred[:, :, 0]
 
-        # Convert mask to 3 channels
-        pred_mask_3ch = np.stack([pred_mask]*3, axis=-1)
+        # Convert to binary mask
+        pred_mask = (pred_mask > 0.5).astype(np.uint8) * 255
 
-        # Keep original colors only inside detected polyp
-        output = image * pred_mask_3ch
+        # Resize safety check (optional but recommended)
+        pred_mask = cv2.resize(pred_mask, (IMG_W, IMG_H))
+
+        # Apply mask to original image
+        output = cv2.bitwise_and(image, image, mask=pred_mask)
 
         # Save final output
         save_image_path = os.path.join("results", f"{name}.png")
