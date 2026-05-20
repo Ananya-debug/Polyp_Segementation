@@ -85,14 +85,53 @@ if __name__ == "__main__":
         total_fn += fn
         total_tn += tn
 
-        """ Visualization: polyp only with original colors """
-        pred_mask = pred[:, :, 0]
-        pred_mask = (pred_mask > 0.5).astype(np.uint8) * 255
+        
+        """ --- VISUALIZATION (4 OUTPUTS) --- """
 
-        output = cv2.bitwise_and(image, image, mask=pred_mask)
+        # 1. Original image
+        original = image
+
+        # 2. Highlighted output with red overlay
+        red_mask = np.zeros_like(image)
+        red_mask[:, :, 2] = pred[:, :, 0] * 255
+
+        highlighted_output = cv2.addWeighted(
+            image,
+            0.7,
+            red_mask.astype(np.uint8),
+            0.3,
+            0
+        )
+
+        # 3. Ground truth
+        mask_vis = (mask * 255).astype(np.uint8)
+        mask_vis = cv2.cvtColor(mask_vis, cv2.COLOR_GRAY2BGR)
+
+        # 4. Only detected polyp visible, background black
+        pred_mask = pred[:, :, 0]
+
+        # Use lower threshold if model is trained for only 1 epoch
+        pred_mask = (pred_mask > 0.1).astype(np.uint8) * 255
+
+        polyp_only = cv2.bitwise_and(image, image, mask=pred_mask)
+
+        # Separator line
+        line = np.ones((IMG_H, 10, 3), dtype=np.uint8) * 255
+
+        # Final combined output
+        combined = np.concatenate([
+            original,
+            line,
+            highlighted_output,
+            line,
+            mask_vis,
+            line,
+            polyp_only
+        ], axis=1)
 
         save_image_path = os.path.join("results", f"{name}.png")
-        cv2.imwrite(save_image_path, output)
+        cv2.imwrite(save_image_path, combined)
+
 
     final_precision = total_tp / (total_tp + total_fp + 1e-7)
     final_recall = total_tp / (total_tp + total_fn + 1e-7)
@@ -114,11 +153,21 @@ if __name__ == "__main__":
         total_tn + total_fp + 1e-7
     )
 
+     # F1 Score
+    final_f1 = (
+        2 * final_precision * final_recall
+    ) / (
+        final_precision + final_recall + 1e-7
+    )
+
     print("\nFinal Results:")
     print(f"Precision: {final_precision:.4f}")
     print(f"Recall/Sensitivity: {final_recall:.4f}")
     print(f"Specificity: {final_specificity:.4f}")
     print(f"Accuracy: {final_accuracy:.4f}")
+    print(f"F1 Score: {final_f1:.4f}")
     print(f"Dice Coefficient: {final_dice:.4f}")
     print(f"Dice Loss: {final_dice_loss:.4f}")
     print(f"IoU/Jaccard: {final_iou:.4f}")
+
+    
