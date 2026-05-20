@@ -86,7 +86,7 @@ if __name__ == "__main__":
         total_tn += tn
 
         
-        """ --- VISUALIZATION (4 OUTPUTS) --- """
+        """ --- VISUALIZATION (5 OUTPUTS) --- """
 
         # 1. Original image
         original = image
@@ -110,10 +110,19 @@ if __name__ == "__main__":
         # 4. Only detected polyp visible, background black
         pred_mask = pred[:, :, 0]
 
-        # Use lower threshold if model is trained for only 1 epoch
+        # Lower threshold for weak prediction visibility
         pred_mask = (pred_mask > 0.1).astype(np.uint8) * 255
 
         polyp_only = cv2.bitwise_and(image, image, mask=pred_mask)
+
+        # 5. Superimposed image: polyp-only on ground truth
+        superimposed = cv2.addWeighted(
+            mask_vis.astype(np.uint8),
+            0.5,
+            polyp_only.astype(np.uint8),
+            0.5,
+            0
+        )
 
         # Separator line
         line = np.ones((IMG_H, 10, 3), dtype=np.uint8) * 255
@@ -126,12 +135,15 @@ if __name__ == "__main__":
             line,
             mask_vis,
             line,
-            polyp_only
+            polyp_only,
+            line,
+            superimposed
         ], axis=1)
 
         save_image_path = os.path.join("results", f"{name}.png")
         cv2.imwrite(save_image_path, combined)
 
+        
 
     final_precision = total_tp / (total_tp + total_fp + 1e-7)
     final_recall = total_tp / (total_tp + total_fn + 1e-7)
